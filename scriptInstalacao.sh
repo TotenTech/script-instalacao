@@ -1,59 +1,125 @@
-#!/bin/bash
+echo "Bem vindo, este script irá configurar a sua máquina e iniciar a aplicação em seu totem!"
 
-# Verifica se o MySQL está instalado
-if ! command -v mysql &> /dev/null
+# Verificar se Docker está instalado
+if ! which docker &> /dev/null
 then
-    echo "MySQL não encontrado. Instalando..."
-    sudo apt update
-    sudo apt install mysql-server
-    echo "MySQL instalado com sucesso."
-    
+    echo "Instalando docker docker na máquina"
+
+    # Atualizar pacotes existentes
+    sudo apt-get update
+
+    # Remover versões antigas do Docker
+    sudo apt-get remove -y docker docker-engine docker.io containerd runc
+
+    # Instalar pacotes necessários para usar o repositório APT sobre HTTPS
+    sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+
+    # Adicionar a chave GPG oficial do Docker
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+    # Adicionar o repositório do Docker às fontes do APT
+    sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+    # Atualizar pacotes do APT novamente para incluir pacotes do Docker
+    sudo apt-get update
+
+    # Instalar Docker CE
+    sudo apt-get install -y docker-ce
+
+    # Adicionar o usuário atual ao grupo Docker
+    sudo usermod -aG docker $USER
+
+
+    echo "Docker foi instalado com sucesso."
+
+    sudo systemctl restart docker
+
 else
-    echo "MySQL já está instalado."
+    echo "Verificamos que você já possui Docker em sua máquina."
 fi
 
-# Start o Mysql service
-sudo service mysql start
 
-# Configura a senha do usuário root do MySQL
-if sudo mysql -e "SELECT 1;" &> /dev/null
+# Verificar se Docker Compose está instalado
+if ! which docker-compose &> /dev/null
 then
-    echo "MySQL está em execução."
-    #read -sp "Digite a senha do usuário root do MySQL: " MYSQL_ROOT_PASSWORD
-    # Ou caso queira um script completamente automatico 
+
+    echo "Instalando Docker Compose"
+
+    # Instalar Docker Compose
+    sudo curl -L "https://github.com/docker/compose/releases/download/$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep -Po '"tag_name": "\K.*?(?=")')/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+
+    # Aplicar permissões corretas ao binário do Docker Compose
+    sudo chmod +x /usr/local/bin/docker-compose
+
+    # Criar um link simbólico para Docker Compose em /usr/bin se não existir
+    if [ ! -f /usr/bin/docker-compose ]; then
+        sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+    fi
+
+    echo "Docker Compose instalado com sucesso."
 else
-    echo "Erro: MySQL não está em execução."
-    exit 1
+    echo "Verificamos que você já possui Docker Compose instalado em sua máquina."
 fi
 
-# Reinicia o serviço do MySQL
-echo "Reiniciando o serviço do MySQL..."
-sudo service mysql restart
+# Verificar instalação
+sudo docker --version
 
-# Configurações do MySQL
-MYSQL_USER="root"
-MYSQL_DATABASE="totemTech"
+sudo docker-compose --version
 
-git clone https://github.com/TotenTech/TotemTech-Main.git
-git clone https://github.com/TotenTech/database.git
-git clone https://github.com/TotenTech/client.git
+cat <<EOF > docker-compose.yml
+version: '3.3'
 
+services:
+  app:
+    image: gabrielamaralll/client_grupo_totemtech
+    restart: always
+    container_name: my-app-container
+    environment:
+      - DB_HOST=localhost
+      - DB_PORT=3306
+      - DB_USER=totemMaster
+      - DB_PASSWORD=12345
+      - DB_NAME=totemTech
+      - token-alertas=https://hooks.slack.com/services/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
+      - token-critico=https://hooks.slack.com/services/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
+      - token-interrupcoes=https://hooks.slack.com/services/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
+    depends_on:
+      - db
+    network_mode: host
+    stdin_open: true
+    tty: true
+    ports:
+      - "8080:8080"
 
-cd database
-sudo mysql -u root < script.sql
+  db:
+    image: tallyon26655/totem-tech
+    restart: always
+    container_name: my-db-container
+    ports:
+      - "3306:3306"
+    environment:
+     MYSQL_ROOT_PASSWORD: urubu100
+    network_mode: host
+    command: --init-file /data/application/init.sql
+    volumes:
+     - ./init.sql:/data/application/init.sql
 
-java -version  # Verifica a versão atual do Java
+networks:
+  totemtech_net:
+    driver: bridge
+    ipam:
+      driver: default
 
-if [ $? = 0 ]; then
-    echo "Java instalado"
-else
-    echo "Java não instalado"
-        sudo apt install openjdk-17-jre -y
-fi
+EOF
 
-cd ..
-cd client
-cd login-totemtech-client
-cd target
+cat <<EOF > init.sql
+CREATE USER 'totemMaster'@'%' IDENTIFIED BY '12345';
+GRANT ALL PRIVILEGES ON *.* TO 'totemMaster'@'%';
+FLUSH PRIVILEGES;
+EOF
+
+sudo docker compose up -d
+
 clear
-java -jar login-totemtech-1.0-SNAPSHOT-jar-with-dependencies.jar
+
+sudo docker exec -it my-app-container java -jar app.jar
