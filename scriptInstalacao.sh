@@ -71,7 +71,7 @@ version: '3.3'
 
 services:
   app:
-    image: gabrielamaralll/client_grupo_totemtech
+    image: gabrielamaralll/totemtech-jar-image
     restart: always
     container_name: my-app-container
     environment:
@@ -80,9 +80,6 @@ services:
       - DB_USER=totemMaster
       - DB_PASSWORD=12345
       - DB_NAME=totemTech
-      - token-alertas=https://hooks.slack.com/services/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
-      - token-critico=https://hooks.slack.com/services/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
-      - token-interrupcoes=https://hooks.slack.com/services/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
     depends_on:
       - db
     network_mode: host
@@ -119,6 +116,9 @@ FLUSH PRIVILEGES;
 EOF
 
 sudo docker compose up -d
+
+rm init.sql
+rm docker-compose.yml
 
 clear
 
