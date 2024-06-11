@@ -71,7 +71,7 @@ version: '3.3'
 
 services:
   app:
-    image: gabrielamaralll/totemtech-jar-image
+    image: gabrielamaralll/totemtech-jar-final-sprint
     restart: always
     container_name: my-app-container
     environment:
@@ -89,7 +89,7 @@ services:
       - "8080:8080"
 
   db:
-    image: tallyon26655/totem-tech
+    image: tallyon26655/totem-tech-container
     restart: always
     container_name: my-db-container
     ports:
